@@ -1,0 +1,7 @@
+/target
+/web/dist
+/shots
+*.kra~
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SPY HUNTER: INTERCEPTOR — play in your browser</title>
+  <meta name="description" content="Drive the G-6155 Interceptor, protect civilians, and survive highway, snow, water, and night-city pursuit. An original Rust + Bevy arcade tribute with original pixel art and chiptune.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="SPY HUNTER: INTERCEPTOR">
+  <meta property="og:description" content="A top-down vehicular-combat arcade tribute in Rust + Bevy. Original pixel art, original chiptune.">
+  <meta property="og:url" content="https://orbitmechanic.github.io/spy-hunter-web/">
+  <meta property="og:image" content="https://orbitmechanic.github.io/spy-hunter-web/assets/art/banner.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SPY HUNTER: INTERCEPTOR">
+  <meta name="twitter:description" content="Highway, snow, water, night city. Machine gun, oil, smoke, missiles, weapons van. Rust + Bevy.">
+  <meta name="twitter:image" content="https://orbitmechanic.github.io/spy-hunter-web/assets/art/banner.png">
+  <link rel="canonical" href="https://orbitmechanic.github.io/spy-hunter-web/">
+  <meta name="theme-color" content="#05070b">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <script>
+    // Browsers create Web Audio suspended until a trusted gesture. Bevy creates
+    // its AudioContext during boot; resume every context on the first real tap.
+    (() => {
+      const Native = window.AudioContext || window.webkitAudioContext;
+      if (!Native) return;
+      const contexts = [];
+      function Wrapped(...args) {
+        const ctx = new Native(...args);
+        contexts.push(ctx);
+        return ctx;
+      }
+      Wrapped.prototype = Native.prototype;
+      window.AudioContext = Wrapped;
+      if (window.webkitAudioContext) window.webkitAudioContext = Wrapped;
+      const resume = () => contexts.forEach((ctx) => {
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      });
+      ['pointerdown', 'keydown', 'touchstart'].forEach((event) => {
+        window.addEventListener(event, resume, { capture: true, passive: true });
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <header class="top">
+    <a class="back" href="https://orbitmechanic.github.io/">← Gallifrey Station</a>
+    <span class="bay-label">BAY 10 / RECENT LAUNCH</span>
+    <nav class="links" aria-label="Game links">
+      <a href="https://github.com/orbitmechanic/spy-hunter" target="_blank" rel="noopener">Source ↗</a>
+      <button id="fullscreen" type="button">Fullscreen ⤢</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="intro">
+      <p class="kicker"><span></span> A RUST + BEVY ARCADE TRIBUTE</p>
+      <h1>SPY HUNTER<span>: INTERCEPTOR</span></h1>
+      <p class="lede">One car. Four terrains. An endless enemy freeway. Protect the civilians, take the weapons van, and keep the G-6155 alive from coast highway to alpine pass to delta waterway to night city.</p>
+      <p class="byline">Original pixel art · original chiptune · car-to-boat transition · keyboard + touch</p>
+    </section>
+
+    <section class="cabinet" id="cabinet" aria-label="Spy Hunter: Interceptor game">
+      <div class="marquee" aria-hidden="true">
+        <span class="marquee-star">◆</span>
+        <span>SPY HUNTER</span>
+        <em>INTERCEPTOR</em>
+        <span class="marquee-star">◆</span>
+      </div>
+
+      <div class="frame" id="frame">
+        <canvas id="game-canvas" width="960" height="720" tabindex="0" aria-label="Spy Hunter: Interceptor game screen"></canvas>
+
+        <div id="loading" class="veil">
+          <div class="loader" aria-hidden="true"></div>
+          <p>ARMING THE INTERCEPTOR…</p>
+          <p class="small">Bevy is loading the freeway.</p>
+        </div>
+
+        <div id="start-overlay" class="veil clickable" hidden>
+          <button id="start-button" class="start-button" type="button">
+            <span>▶</span> TAP TO DEPLOY
+          </button>
+          <p class="small">Sound starts after your first tap. Enter or click also works.</p>
+        </div>
+
+        <div id="boot-error" class="veil" hidden>
+          <p class="fail">INTERCEPTOR OFFLINE</p>
+          <p class="small">This game needs JavaScript, WebGL 2 and WebAssembly. Try a current Chrome, Firefox, Edge or Safari.</p>
+        </div>
+      </div>
+
+      <div id="touch-controls" class="touch-controls" aria-label="Touch game controls">
+        <div class="dpad">
+          <button class="pad left" data-key="ArrowLeft" type="button" aria-label="Steer left">◀<span>STEER</span></button>
+          <button class="pad right" data-key="ArrowRight" type="button" aria-label="Steer right">▶<span>STEER</span></button>
+        </div>
+        <div class="actions">
+          <button class="fire" data-key="Space" type="button" aria-label="Fire machine gun">
+            FIRE
+            <span>MACHINE GUN</span>
+          </button>
+          <div class="weapons">
+            <button data-key="Digit1" type="button" aria-label="Oil slick">OIL<span>1</span></button>
+            <button data-key="Digit2" type="button" aria-label="Smoke screen">SMOKE<span>2</span></button>
+            <button data-key="Digit3" type="button" aria-label="Missile">MSL<span>3</span></button>
+            <button data-key="KeyV" type="button" aria-label="Summon weapons van">VAN<span>V</span></button>
+          </div>
+          <div class="utility">
+            <button data-key="KeyP" type="button" aria-label="Pause">II</button>
+            <button data-key="KeyM" type="button" aria-label="Mute">M</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="mobile-hint" id="mobile-hint">Rotate sideways for a bigger cabinet. Touch controls work in portrait too.</p>
+
+      <div class="controls" aria-label="Keyboard controls">
+        <span><kbd>A</kbd><kbd>D</kbd> steer</span>
+        <span><kbd>W</kbd><kbd>S</kbd> throttle / brake</span>
+        <span><kbd>SPACE</kbd> machine gun</span>
+        <span><kbd>1</kbd> oil</span>
+        <span><kbd>2</kbd> smoke</span>
+        <span><kbd>3</kbd> missile</span>
+        <span><kbd>V</kbd> van</span>
+        <span><kbd>P</kbd> pause</span>
+        <span><kbd>M</kbd> mute</span>
+      </div>
+    </section>
+
+    <section class="briefing">
+      <div class="brief-card">
+        <p class="brief-no">01</p>
+        <h2>The Interceptor</h2>
+        <p>A white G-6155 with a red rail, machine gun, oil slick, smoke screen, and surface-to-air missiles. Special weapons only come aboard through the weapons van — watch for <strong>VAN READY</strong> and press <kbd>V</kbd>.</p>
+      </div>
+      <div class="brief-card">
+        <p class="brief-no">02</p>
+        <h2>Protect the civilians</h2>
+        <p>Teal civilian cars share the road. Shooting one freezes your score for three seconds. Colliding with one costs an Interceptor. The freeway does not forgive.</p>
+      </div>
+      <div class="brief-card">
+        <p class="brief-no">03</p>
+        <h2>Four terrains</h2>
+        <p>The route cycles through coast highway, alpine snow, delta waterway, and night city every 48 seconds. In the waterway the car becomes a speedboat and the oil slick becomes a flamethrower.</p>
+      </div>
+      <div class="brief-card">
+        <p class="brief-no">04</p>
+        <h2>Endless pursuit</h2>
+        <p>Switchblade cars shoot back, boats pursue from behind, and a helicopter drops bombs that leave craters in the pavement. Extra interceptors arrive at score thresholds. There is no final exit.</p>
+      </div>
+    </section>
+
+    <section class="notes">
+      <div>
+        <p class="section-label">FIELD NOTES</p>
+        <h2>Built for the browser, drawn by hand</h2>
+      </div>
+      <div class="note-columns">
+        <p>All sprites and terrain tiles were generated with Krita 6's Python API: five vehicles, a speedboat, a helicopter, pickups, explosions, scenery, and four 960×720 terrain fields. The banner and logo came from the same pixel grid.</p>
+        <p>The soundtrack is an original 23-second spy-surf chiptune in E minor, synthesized from square, triangle, saw, and noise voices at 22.05 kHz. The ten sound effects are generated by the same script. Nothing is sampled from the 1983 arcade machine.</p>
+        <p>Simulation tests cover road bounds, lane geometry, collision math, enemy scoring, deterministic randomness, and terrain cycling. The browser build is the same Bevy app compiled to WebAssembly and rendered with WebGL 2.</p>
+      </div>
+    </section>
+
+    <section class="source-strip">
+      <a href="https://github.com/orbitmechanic/spy-hunter" target="_blank" rel="noopener">
+        <strong>Source & build notes</strong>
+        <span>github.com/orbitmechanic/spy-hunter ↗</span>
+      </a>
+      <a href="https://github.com/orbitmechanic/spy-hunter-web" target="_blank" rel="noopener">
+        <strong>This build</strong>
+        <span>github.com/orbitmechanic/spy-hunter-web ↗</span>
+      </a>
+      <a href="https://orbitmechanic.github.io/" target="_blank" rel="noopener">
+        <strong>Gallifrey Station</strong>
+        <span>Back to the docking bays ↗</span>
+      </a>
+    </section>
+
+    <footer>
+      <p>SPY HUNTER: INTERCEPTOR · an unaffiliated fan tribute · original art and audio · MIT</p>
+    </footer>
+  </main>
+
+  <script type="module">
+    const canvas = document.getElementById('game-canvas');
+    const loading = document.getElementById('loading');
+    const startOverlay = document.getElementById('start-overlay');
+    const startButton = document.getElementById('start-button');
+    const bootError = document.getElementById('boot-error');
+    const frame = document.getElementById('frame');
+
+    function keyEvent(type, code) {
+      const key = code.startsWith('Arrow') ? code.replace('Arrow', '') :
+        code.startsWith('Digit') ? code.slice(5) :
+        code.startsWith('Key') ? code.slice(3).toLowerCase() :
+        code === 'Space' ? ' ' : code;
+      const event = new KeyboardEvent(type, {
+        code, key, bubbles: true, cancelable: true,
+      });
+      canvas.dispatchEvent(event);
+      window.dispatchEvent(new KeyboardEvent(type, { code, key, bubbles: true }));
+    }
+
+    function tap(code) {
+      keyEvent('keydown', code);
+      setTimeout(() => keyEvent('keyup', code), 90);
+    }
+
+    function focusGame() {
+      canvas.focus({ preventScroll: true });
+      requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+    }
+
+    startButton.addEventListener('click', () => {
+      startOverlay.hidden = true;
+      tap('Enter');
+      focusGame();
+    });
+
+    canvas.addEventListener('pointerdown', () => canvas.focus({ preventScroll: true }));
+
+    // Touch buttons dispatch real keyboard events at the canvas; winit listens
+    // on the window, so the synthetic event bubbles through.
+    for (const button of document.querySelectorAll('[data-key]')) {
+      const code = button.dataset.key;
+      let held = false;
+      const down = (event) => {
+        event.preventDefault();
+        if (held) return;
+        held = true;
+        button.classList.add('active');
+        keyEvent('keydown', code);
+      };
+      const up = (event) => {
+        event.preventDefault();
+        if (!held) return;
+        held = false;
+        button.classList.remove('active');
+        keyEvent('keyup', code);
+      };
+      button.addEventListener('pointerdown', down);
+      button.addEventListener('pointerup', up);
+      button.addEventListener('pointercancel', up);
+      button.addEventListener('pointerleave', up);
+      button.addEventListener('contextmenu', (event) => event.preventDefault());
+    }
+
+    document.getElementById('fullscreen').addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await frame.requestFullscreen();
+      } catch (_) {}
+    });
+
+    document.addEventListener('contextmenu', (event) => {
+      if (event.target.closest('.touch-controls')) event.preventDefault();
+    });
+
+    try {
+      const { default: init } = await import('./spy_hunter.js');
+      await init();
+      loading.hidden = true;
+      startOverlay.hidden = false;
+      focusGame();
+    } catch (error) {
+      console.error(error);
+      loading.hidden = true;
+      bootError.hidden = false;
+    }
+  </script>
+</body>
+</html>
