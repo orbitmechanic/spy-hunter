@@ -975,6 +975,23 @@ pub fn summon_van(
     let _ = game;
 }
 
+pub fn move_vans(
+    mut commands: Commands,
+    time: Res<Time>,
+    game: Res<Game>,
+    mut vans: Query<(Entity, &mut Transform), With<Van>>,
+) {
+    let dt = time.delta_secs().min(0.05);
+    for (entity, mut tf) in &mut vans {
+        // The van drives the same direction as the player, but slower, so the
+        // Interceptor closes on it from behind.
+        tf.translation.y += (110.0 - game.speed) * dt;
+        if tf.translation.y < -440.0 {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn move_enemies(
     time: Res<Time>,

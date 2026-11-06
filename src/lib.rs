@@ -147,6 +147,7 @@ pub fn run() {
                 player_control,
                 spawn_enemies,
                 summon_van,
+                move_vans,
                 move_enemies,
                 player_fire,
                 move_bullets,
