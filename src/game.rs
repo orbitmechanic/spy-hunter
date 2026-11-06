@@ -450,7 +450,9 @@ pub fn start_run(
     mut fx: ResMut<Fx>,
     capture: Res<crate::CaptureConfig>,
 ) {
+    let hi = game.hi;
     *game = Game::default();
+    game.hi = hi;
     if let Some(terrain) = capture.terrain {
         game.terrain = terrain;
     }
@@ -499,6 +501,9 @@ pub fn cleanup_run(mut commands: Commands, entities: Query<Entity, With<GameEnti
 // ---------------------------------------------------------------------------
 
 #[derive(Resource, Default)]
+pub struct TouchPrev(pub u32);
+
+#[derive(Resource, Default)]
 pub struct Actions {
     pub left: bool,
     pub right: bool,
@@ -520,21 +525,40 @@ pub fn update_actions(
     mouse: Res<ButtonInput<MouseButton>>,
     mut actions: ResMut<Actions>,
     mut muted: ResMut<Muted>,
+    mut touch: ResMut<TouchPrev>,
 ) {
-    actions.left = keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft);
-    actions.right = keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight);
-    actions.throttle = keys.pressed(KeyCode::KeyW) || keys.pressed(KeyCode::ArrowUp);
-    actions.brake = keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown);
-    actions.fire = keys.pressed(KeyCode::Space) || keys.pressed(KeyCode::KeyJ);
+    let mask = crate::touch_mask();
+    let prev = touch.0;
+    touch.0 = mask;
+    let down = |bit: u32| mask & bit != 0;
+    let just = |bit: u32| mask & bit != 0 && prev & bit == 0;
+
+    actions.left =
+        keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) || down(crate::BIT_LEFT);
+    actions.right =
+        keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight) || down(crate::BIT_RIGHT);
+    actions.throttle =
+        keys.pressed(KeyCode::KeyW) || keys.pressed(KeyCode::ArrowUp) || down(crate::BIT_THROTTLE);
+    actions.brake =
+        keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown) || down(crate::BIT_BRAKE);
+    actions.fire =
+        keys.pressed(KeyCode::Space) || keys.pressed(KeyCode::KeyJ) || down(crate::BIT_FIRE);
     actions.start = keys.just_pressed(KeyCode::Enter)
         || keys.just_pressed(KeyCode::Space)
-        || mouse.just_pressed(MouseButton::Left);
-    actions.pause = keys.just_pressed(KeyCode::KeyP);
-    actions.mute = keys.just_pressed(KeyCode::KeyM);
-    actions.oil = keys.just_pressed(KeyCode::Digit1) || keys.just_pressed(KeyCode::KeyU);
-    actions.smoke = keys.just_pressed(KeyCode::Digit2) || keys.just_pressed(KeyCode::KeyI);
-    actions.missile = keys.just_pressed(KeyCode::Digit3) || keys.just_pressed(KeyCode::KeyO);
-    actions.van = keys.just_pressed(KeyCode::KeyV);
+        || mouse.just_pressed(MouseButton::Left)
+        || just(crate::BIT_START);
+    actions.pause = keys.just_pressed(KeyCode::KeyP) || just(crate::BIT_PAUSE);
+    actions.mute = keys.just_pressed(KeyCode::KeyM) || just(crate::BIT_MUTE);
+    actions.oil = keys.just_pressed(KeyCode::Digit1)
+        || keys.just_pressed(KeyCode::KeyU)
+        || just(crate::BIT_OIL);
+    actions.smoke = keys.just_pressed(KeyCode::Digit2)
+        || keys.just_pressed(KeyCode::KeyI)
+        || just(crate::BIT_SMOKE);
+    actions.missile = keys.just_pressed(KeyCode::Digit3)
+        || keys.just_pressed(KeyCode::KeyO)
+        || just(crate::BIT_MISSILE);
+    actions.van = keys.just_pressed(KeyCode::KeyV) || just(crate::BIT_VAN);
     actions.restart = keys.just_pressed(KeyCode::KeyR);
 
     if actions.mute {
@@ -706,12 +730,12 @@ pub fn player_control(
     actions: Res<Actions>,
     mut game: ResMut<Game>,
     road: Res<Road>,
-    mut player: Query<(&mut Player, &mut Transform, &mut Sprite)>,
+    mut player: Query<(Entity, &mut Player, &mut Transform, &mut Sprite)>,
     mut commands: Commands,
     mut sfx: MessageWriter<Sfx>,
 ) {
     let dt = time.delta_secs().min(0.05);
-    let Ok((mut p, mut tf, mut sprite)) = player.single_mut() else {
+    let Ok((entity, mut p, mut tf, mut sprite)) = player.single_mut() else {
         return;
     };
     p.invuln = (p.invuln - dt).max(0.0);
@@ -730,12 +754,9 @@ pub fn player_control(
         game.target_speed = 120.0;
         if game.offroad > 2.1 {
             game.offroad = 0.0;
-            crate::game::damage_player_public(
-                &mut commands,
-                &mut game,
-                &mut sfx,
-                tf.translation.truncate(),
-            );
+            let at = tf.translation.truncate();
+            commands.entity(entity).despawn();
+            crate::game::damage_player_public(&mut commands, &mut game, &mut sfx, at);
         }
     } else {
         game.offroad = (game.offroad - dt * 1.8).max(0.0);
@@ -854,6 +875,7 @@ pub fn spawn_enemies(
     art: Res<Art>,
     mut rng: ResMut<Rng>,
     enemies: Query<&Enemy>,
+    vans: Query<&Van>,
 ) {
     let dt = time.delta_secs().min(0.05);
     if game.phase != RunPhase::Running {
@@ -911,9 +933,22 @@ pub fn spawn_enemies(
     if weapons.van_timer <= 0.0 {
         weapons.van_timer = rng.range(20.0, 26.0);
         weapons.van_ready = false;
+        if vans.is_empty() {
+            let x = road_center(390.0, road.scroll) + LANES[rng.pick(4)];
+            spawn_van(&mut commands, &art, x);
+        }
     }
     game.van_timer = weapons.van_timer;
     game.van_ready = weapons.van_ready;
+}
+
+fn spawn_van(commands: &mut Commands, art: &Art, x: f32) {
+    commands.spawn((
+        sized(art.van.clone(), 64.0, 96.0),
+        Transform::from_xyz(x, 390.0, 11.0),
+        Van,
+        GameEntity,
+    ));
 }
 
 pub fn summon_van(
@@ -932,12 +967,7 @@ pub fn summon_van(
     weapons.van_ready = false;
     weapons.van_timer = 22.0;
     let x = road_center(390.0, road.scroll) + LANES[1];
-    commands.spawn((
-        sized(art.van.clone(), 64.0, 96.0),
-        Transform::from_xyz(x, 390.0, 11.0),
-        Van,
-        GameEntity,
-    ));
+    spawn_van(&mut commands, &art, x);
     sfx.write(Sfx::Ui);
     let _ = game;
 }

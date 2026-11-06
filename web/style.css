@@ -213,9 +213,8 @@ h1 span {
   inset: 0;
   pointer-events: none;
   background:
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, .16) 0 1px, transparent 1px 3px),
-    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .34));
-  mix-blend-mode: multiply;
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .08) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 62%, rgba(0, 0, 0, .16));
 }
 
 .veil {
@@ -450,4 +449,11 @@ footer {
 @media (max-width: 720px) {
   .notes { grid-template-columns: 1fr; }
   .intro { padding-top: 34px; }
+}
+
+@media (min-width: 900px) and (max-height: 1050px) {
+  .intro { padding: 28px 0 20px; }
+  h1 { font-size: clamp(42px, 7.6vw, 78px); }
+  .lede { margin: 14px 0 8px; font-size: 15px; }
+  .cabinet { margin-top: 10px; }
 }

@@ -27,6 +27,7 @@
       function Wrapped(...args) {
         const ctx = new Native(...args);
         contexts.push(ctx);
+        if (!window.__spyAudioContext) window.__spyAudioContext = ctx;
         return ctx;
       }
       Wrapped.prototype = Native.prototype;
@@ -193,54 +194,66 @@
     const bootError = document.getElementById('boot-error');
     const frame = document.getElementById('frame');
 
-    function keyEvent(type, code) {
-      const key = code.startsWith('Arrow') ? code.replace('Arrow', '') :
-        code.startsWith('Digit') ? code.slice(5) :
-        code.startsWith('Key') ? code.slice(3).toLowerCase() :
-        code === 'Space' ? ' ' : code;
-      const event = new KeyboardEvent(type, {
-        code, key, bubbles: true, cancelable: true,
-      });
-      canvas.dispatchEvent(event);
-      window.dispatchEvent(new KeyboardEvent(type, { code, key, bubbles: true }));
-    }
-
-    function tap(code) {
-      keyEvent('keydown', code);
-      setTimeout(() => keyEvent('keyup', code), 90);
-    }
+    // JS -> Rust input bridge. `spy_input` is exported by the wasm module.
+    // Held controls stay in the mask; one-shot controls pulse for ~140 ms and
+    // are edge-detected on the Rust side.
+    const BITS = {
+      ArrowLeft: 1, ArrowRight: 2, ArrowUp: 4, ArrowDown: 8,
+      Space: 16, Digit1: 32, Digit2: 64, Digit3: 128, KeyV: 256,
+      KeyP: 1024, KeyM: 2048,
+    };
+    const PULSE = new Set(['Digit1', 'Digit2', 'Digit3', 'KeyV', 'KeyP', 'KeyM']);
+    let inputMask = 0;
+    let spyInput = null;
+    const applyMask = () => { if (spyInput) spyInput(inputMask); };
+    const hold = (bit, on) => {
+      if (on) inputMask |= bit; else inputMask &= ~bit;
+      applyMask();
+    };
+    const pulse = (bit) => {
+      inputMask |= bit; applyMask();
+      setTimeout(() => { inputMask &= ~bit; applyMask(); }, 140);
+    };
 
     function focusGame() {
       canvas.focus({ preventScroll: true });
-      requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+      requestAnimationFrame(() => frame.scrollIntoView({ block: 'center', behavior: 'instant' }));
     }
+
+    window.addEventListener('keydown', (event) => {
+      if (!startOverlay.hidden && (event.code === 'Enter' || event.code === 'Space')) {
+        startOverlay.hidden = true;
+        window.__spyStarted = true;
+      }
+    });
 
     startButton.addEventListener('click', () => {
       startOverlay.hidden = true;
-      tap('Enter');
+      window.__spyStarted = true;
+      pulse(512);
       focusGame();
     });
 
     canvas.addEventListener('pointerdown', () => canvas.focus({ preventScroll: true }));
 
-    // Touch buttons dispatch real keyboard events at the canvas; winit listens
-    // on the window, so the synthetic event bubbles through.
     for (const button of document.querySelectorAll('[data-key]')) {
       const code = button.dataset.key;
+      const bit = BITS[code];
+      if (!bit) continue;
       let held = false;
       const down = (event) => {
         event.preventDefault();
         if (held) return;
         held = true;
         button.classList.add('active');
-        keyEvent('keydown', code);
+        if (PULSE.has(code)) pulse(bit); else hold(bit, true);
       };
       const up = (event) => {
         event.preventDefault();
         if (!held) return;
         held = false;
         button.classList.remove('active');
-        keyEvent('keyup', code);
+        if (!PULSE.has(code)) hold(bit, false);
       };
       button.addEventListener('pointerdown', down);
       button.addEventListener('pointerup', up);
@@ -261,8 +274,12 @@
     });
 
     try {
-      const { default: init } = await import('./spy_hunter.js');
-      await init();
+      const module = await import('./spy_hunter.js');
+      await module.default();
+      spyInput = module.spy_input;
+      window.__spyInput = module.spy_input;
+      applyMask();
+      window.__spyReady = true;
       loading.hidden = true;
       startOverlay.hidden = false;
       focusGame();

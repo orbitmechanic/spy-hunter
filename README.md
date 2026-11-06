@@ -62,6 +62,22 @@ cargo build --release
 
 Bevy 0.20.1 needs Rust 1.97+; this project uses edition 2024.
 
+### Browser smoke test
+
+`tools/verify_web.mjs` boots the staged build in headless Chromium, waits for
+the wasm module, clicks **TAP TO DEPLOY** with a trusted event (unlocking
+audio), drives the car with arrow keys and Space, and writes screenshots to
+`shots/web/`:
+
+```sh
+python3 -m http.server 8123 --directory web/dist
+node tools/verify_web.mjs http://127.0.0.1:8123/
+```
+
+The touch buttons call a small wasm-bindgen input bridge (`spy_input(mask)`)
+rather than synthetic DOM key events, because winit may ignore untrusted key
+events. Desktop keyboard input still goes through Bevy's normal `ButtonInput`.
+
 ### Screenshot harness
 
 The binary can render a frame and exit, which is how the README images were
@@ -99,6 +115,15 @@ repository.
   mono WAVs.
 
 Source `.kra` boards are in `assets/art/` for hand editing.
+
+## Mission debrief
+
+The Impress deck covering research, architecture, art/audio pipelines,
+verification, challenges, deployment, and next steps is in `docs/`:
+
+- `docs/spy-hunter-debrief.pdf`
+- `docs/spy-hunter-debrief.odp`
+- `docs/spy-hunter-debrief.pptx`
 
 ## Layout
 

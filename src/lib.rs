@@ -29,6 +29,40 @@ pub enum AppState {
 #[derive(Resource, Default)]
 pub struct Paused(pub bool);
 
+// Touch/UI input bits shared with the browser shell. The wasm module exposes
+// `spy_input(mask)`; native builds always read 0 and use keyboard/mouse.
+pub const BIT_LEFT: u32 = 1 << 0;
+pub const BIT_RIGHT: u32 = 1 << 1;
+pub const BIT_THROTTLE: u32 = 1 << 2;
+pub const BIT_BRAKE: u32 = 1 << 3;
+pub const BIT_FIRE: u32 = 1 << 4;
+pub const BIT_OIL: u32 = 1 << 5;
+pub const BIT_SMOKE: u32 = 1 << 6;
+pub const BIT_MISSILE: u32 = 1 << 7;
+pub const BIT_VAN: u32 = 1 << 8;
+pub const BIT_START: u32 = 1 << 9;
+pub const BIT_PAUSE: u32 = 1 << 10;
+pub const BIT_MUTE: u32 = 1 << 11;
+
+#[cfg(target_arch = "wasm32")]
+static INPUT_MASK: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn spy_input(mask: u32) {
+    INPUT_MASK.store(mask, std::sync::atomic::Ordering::Relaxed);
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn touch_mask() -> u32 {
+    INPUT_MASK.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn touch_mask() -> u32 {
+    0
+}
+
 #[derive(Resource, Default)]
 pub struct CaptureConfig {
     pub screenshot: Option<String>,
@@ -70,6 +104,7 @@ pub fn run() {
     .init_resource::<Fx>()
     .init_resource::<Rng>()
     .init_resource::<Actions>()
+    .init_resource::<TouchPrev>()
     .init_resource::<Paused>()
     .init_resource::<Muted>()
     .init_state::<AppState>()
