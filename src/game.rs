@@ -982,11 +982,14 @@ pub fn move_vans(
     mut vans: Query<(Entity, &mut Transform), With<Van>>,
 ) {
     let dt = time.delta_secs().min(0.05);
+    if game.phase != RunPhase::Running {
+        return;
+    }
     for (entity, mut tf) in &mut vans {
         // The van drives the same direction as the player, but slower, so the
         // Interceptor closes on it from behind.
         tf.translation.y += (110.0 - game.speed) * dt;
-        if tf.translation.y < -440.0 {
+        if tf.translation.y < -440.0 || tf.translation.y > 470.0 {
             commands.entity(entity).despawn();
         }
     }
