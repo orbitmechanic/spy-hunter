@@ -130,7 +130,7 @@ await sleep(1200);
 await shot('title');
 
 // Trusted click on the start button: unlocks AudioContext and dispatches Enter.
-await evaluate(`document.getElementById('start-button').scrollIntoView({block: 'center'})`);
+await evaluate(`document.getElementById('start-button').scrollIntoView({block: 'center', behavior: 'instant'})`);
 await sleep(400);
 const rect = await evaluate(`(() => {
   const el = document.getElementById('start-button');
