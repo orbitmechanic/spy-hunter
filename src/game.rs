@@ -641,6 +641,7 @@ pub fn sync_road(road: Res<Road>, mut parts: Query<(&RoadPart, &mut Transform, &
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn sync_terrain_art(
     mut last: Local<Option<Terrain>>,
     game: Res<Game>,
@@ -857,7 +858,7 @@ fn spawn_enemy_entity(
             kind,
             speed,
             fire: rng.range(1.2, 2.6),
-            phase: rng.range(0.0, 6.28),
+            phase: rng.range(0.0, std::f32::consts::TAU),
             from_behind,
             dead: false,
             hover_y,
@@ -866,6 +867,7 @@ fn spawn_enemy_entity(
     ));
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_enemies(
     mut commands: Commands,
     time: Res<Time>,
@@ -951,6 +953,7 @@ fn spawn_van(commands: &mut Commands, art: &Art, x: f32) {
     ));
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn summon_van(
     actions: Res<Actions>,
     mut weapons: ResMut<Weapons>,
@@ -972,7 +975,7 @@ pub fn summon_van(
     let _ = game;
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn move_enemies(
     time: Res<Time>,
     game: Res<Game>,
@@ -1515,12 +1518,10 @@ pub fn collisions(
         commands.entity(enemy).despawn();
     }
 
-    if hit_player_now {
-        if let Some((entity, _, ppos)) = player_data {
-            commands.entity(entity).despawn();
-            damage_player_public(&mut commands, &mut game, &mut sfx, ppos);
-            fx.shake = 14.0;
-        }
+    if hit_player_now && let Some((entity, _, ppos)) = player_data {
+        commands.entity(entity).despawn();
+        damage_player_public(&mut commands, &mut game, &mut sfx, ppos);
+        fx.shake = 14.0;
     }
 }
 

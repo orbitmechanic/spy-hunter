@@ -237,7 +237,11 @@ h1 span {
 .veil p { margin: 0; }
 .veil .small { color: var(--muted); font-size: 11px; letter-spacing: .04em; text-transform: none; }
 .veil .fail { color: var(--red-bright); font-size: clamp(20px, 3vw, 30px); }
-.veil.clickable { background: rgba(3, 6, 10, .62); }
+.veil.clickable {
+  justify-content: flex-end;
+  padding-bottom: 22px;
+  background: linear-gradient(180deg, transparent 52%, rgba(3, 6, 10, .88) 100%);
+}
 
 .loader {
   width: 44px;
