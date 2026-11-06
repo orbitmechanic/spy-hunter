@@ -8,8 +8,6 @@ Outputs:
   docs/spy-hunter-debrief.pptx
 """
 
-import os
-import subprocess
 from pathlib import Path
 
 import uno
@@ -548,8 +546,8 @@ def build():
 
     odt = d.save("spy-hunter-debrief")
     print(f"wrote {odt}")
-    print(f"wrote {DOCS / 'spy-hunter-debrief.pdf'}")
-    print(f"wrote {DOCS / 'spy-hunter-debrief.pptx'}")
+    print("convert to PDF/PPTX with soffice if needed:") 
+    print(f"  soffice --headless --convert-to pdf --outdir {DOCS} {odt}")
 
 
 if __name__ == "__main__":
